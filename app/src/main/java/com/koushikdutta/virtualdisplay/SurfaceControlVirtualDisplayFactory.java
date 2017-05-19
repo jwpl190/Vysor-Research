@@ -49,6 +49,7 @@ public class SurfaceControlVirtualDisplayFactory implements VirtualDisplayFactor
                 manager.getRealDisplaySize(point);
                 rotate = manager.getRotation();
             }
+            System.out.println(point.toString() + "\n");
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -107,15 +108,15 @@ public class SurfaceControlVirtualDisplayFactory implements VirtualDisplayFactor
                                 final Point displaySize = SurfaceControlVirtualDisplayFactory.this.displaySize;
                                 SurfaceControlVirtualDisplayFactory.this.displaySize =
                                         SurfaceControlVirtualDisplayFactory.getCurrentDisplaySize();
-                                if (!displaySize.equals((Object) SurfaceControlVirtualDisplayFactory.this.displaySize)) {
+                                if (!displaySize.equals(SurfaceControlVirtualDisplayFactory.this.displaySize)) {
                                     try {
                                         final Rect rect = new Rect(0, 0, SurfaceControlVirtualDisplayFactory.this.displaySize.x,
                                                 SurfaceControlVirtualDisplayFactory.this.displaySize.y);
-                                        declaredMethod4.invoke(null, new Object[0]);
+                                        declaredMethod4.invoke(null);
                                         declaredMethod2.invoke(null, binder, 0, rect, SurfaceControlVirtualDisplayFactory.this.displayRect);
-                                        declaredMethod5.invoke(null, new Object[0]);
+                                        declaredMethod5.invoke(null);
                                     } catch (Exception ex) {
-                                        throw new AssertionError((Object) ex);
+                                        throw new AssertionError(ex);
                                     }
                                 }
                             }

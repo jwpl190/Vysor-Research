@@ -7,7 +7,7 @@ import android.view.KeyEvent;
 
 public class AndroidDeviceUtils {
     public static void turnScreenOn() {
-        IPowerManager powerManager = null;
+        IPowerManager powerManager;
         try {
             powerManager = SystemServiceUtil.getPowerManager();
             if (!powerManager.isScreenOn()) {

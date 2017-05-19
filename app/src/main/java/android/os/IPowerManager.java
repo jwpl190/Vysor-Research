@@ -21,7 +21,7 @@ public interface IPowerManager extends IInterface {
         static final int TRANSACTION_releaseWakeLock = 2;
 
         public Stub() {
-            this.attachInterface((IInterface) this, "android.os.IPowerManager");
+            this.attachInterface(this, "android.os.IPowerManager");
         }
 
         public static IPowerManager asInterface(final IBinder binder) {
@@ -40,7 +40,7 @@ public interface IPowerManager extends IInterface {
         }
 
         public IBinder asBinder() {
-            return (IBinder) this;
+            return this;
         }
 
         public boolean onTransact(final int n, final Parcel parcel, final Parcel parcel2, final int n2) throws RemoteException {
@@ -68,7 +68,7 @@ public interface IPowerManager extends IInterface {
                 }
                 case 3: {
                     parcel.enforceInterface("android.os.IPowerManager");
-                    final boolean screenOn = this.isScreenOn();
+                    final boolean screenOn = isScreenOn();
                     parcel2.writeNoException();
                     int n3 = 0;
                     if (screenOn) {

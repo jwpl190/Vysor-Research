@@ -1,7 +1,6 @@
 package com.koushikdutta.virtualdisplay;
 
 import android.annotation.TargetApi;
-import android.content.Context;
 import android.graphics.Point;
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
@@ -11,11 +10,11 @@ import android.os.Build;
 import android.util.Log;
 import android.view.Surface;
 
+import com.xing.xbase.util.LogUtil;
+
 import org.xml.sax.Attributes;
 
 import java.io.IOException;
-
-import com.xing.xbase.util.LogUtil;
 
 public abstract class EncoderDevice {
     protected final String LOGTAG;
@@ -32,9 +31,9 @@ public abstract class EncoderDevice {
     protected int mWidth;
 
     public EncoderDevice(final String name, final int mWidth, final int mHeight) {
-        this.LOGTAG = this.getClass().getSimpleName();
-        this.useSurface = true;
-        this.useEncodingConstraints = true;
+        LOGTAG = getClass().getSimpleName();
+        useSurface = true;
+        useEncodingConstraints = true;
         this.mWidth = mWidth;
         this.mHeight = mHeight;
         this.name = name;
@@ -147,6 +146,7 @@ public abstract class EncoderDevice {
         return codecInfo;
     }
 
+
     public Surface createDisplaySurface() {
         if (android.os.Build.VERSION.SDK_INT < 18)
             return null;
@@ -159,10 +159,10 @@ public abstract class EncoderDevice {
         }
         // 根据视频质量计算相关参数
         MediaFormat mediaFormat = MediaFormat.createVideoFormat("video/avc", mWidth, mHeight);
+        mediaFormat.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface);
         mediaFormat.setInteger(MediaFormat.KEY_BIT_RATE, 3000 * 1000);
         mediaFormat.setInteger(MediaFormat.KEY_FRAME_RATE, 30);
-        mediaFormat.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 5);
-        mediaFormat.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface);
+        mediaFormat.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 10);
         try {
             mMediaCodec = MediaCodec.createEncoderByType("video/avc");
         } catch (IOException e) {
@@ -170,13 +170,10 @@ public abstract class EncoderDevice {
         }
 
         mMediaCodec.configure(mediaFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
-
         Surface localSurface = mMediaCodec.createInputSurface();
-
 //        localEncoderRunnable = onSurfaceCreated(mMediaCodec);
 //        localEncoderThread = new Thread(localEncoderRunnable, "Encoder");
         mMediaCodec.start();
-
 //        Log.e(LOGTAG, "create SurfaceRefresh ~~~");
 //        if (Utils.supportsVDF())
 //            screenRefresh = new SurfaceRefresh(null);
@@ -193,15 +190,15 @@ public abstract class EncoderDevice {
                 try {
                     mediaCodec.stop();
                     mediaCodec.release();
-                    if (this.mMediaCodec == mediaCodec) {
-                        this.mMediaCodec = null;
-                        if (this.virtualDisplay != null) {
-                            this.virtualDisplay.release();
-                            this.virtualDisplay = null;
+                    if (mMediaCodec == mediaCodec) {
+                        mMediaCodec = null;
+                        if (virtualDisplay != null) {
+                            virtualDisplay.release();
+                            virtualDisplay = null;
                         }
-                        if (this.vdf != null) {
-                            this.vdf.release();
-                            this.vdf = null;
+                        if (vdf != null) {
+                            vdf.release();
+                            vdf = null;
                         }
                     }
                 } catch (Exception ex) {
@@ -217,25 +214,25 @@ public abstract class EncoderDevice {
     }
 
     public int getColorFormat() {
-        return this.colorFormat;
+        return colorFormat;
     }
 
     public Point getEncodingDimensions() {
-        return this.encSize;
+        return encSize;
     }
 
     public MediaCodec getMediaCodec() {
-        return this.mMediaCodec;
+        return mMediaCodec;
     }
 
     public boolean isConnected() {
-        return this.mMediaCodec != null;
+        return mMediaCodec != null;
     }
 
     public void joinRecorderThread() {
         try {
-            if (this.lastRecorderThread != null) {
-                this.lastRecorderThread.join();
+            if (lastRecorderThread != null) {
+                lastRecorderThread.join();
             }
         } catch (InterruptedException ex) {
         }
@@ -243,20 +240,20 @@ public abstract class EncoderDevice {
 
     protected abstract EncoderRunnable onSurfaceCreated(final MediaCodec p0);
 
-    public void registerVirtualDisplay(final Context context, final VirtualDisplayFactory vdf, final int n) {
-        assert this.virtualDisplay == null;
+    public void registerVirtualDisplay(final VirtualDisplayFactory vdf, final int n) {
+        assert virtualDisplay == null;
         final Surface displaySurface = createDisplaySurface();
         if (displaySurface == null) {
             LogUtil.d("Unable to create surface");
         } else {
             LogUtil.d("Created surface");
             this.vdf = vdf;
-            this.virtualDisplay = vdf.createVirtualDisplay(this.name, this.mWidth, this.mHeight, n, 3, displaySurface, null);
+            virtualDisplay = vdf.createVirtualDisplay(name, mWidth, mHeight, n, 3, displaySurface, null);
         }
     }
 
     void setSurfaceFormat(final MediaFormat mediaFormat) {
-        mediaFormat.setInteger("color-format", this.colorFormat = 2130708361);
+        mediaFormat.setInteger("color-format", colorFormat = 2130708361);
     }
 
     public void setUseEncodingConstraints(final boolean useEncodingConstraints) {
@@ -265,27 +262,27 @@ public abstract class EncoderDevice {
 
     @TargetApi(18)
     void signalEnd() {
-        if (this.mMediaCodec == null) {
+        if (mMediaCodec == null) {
             return;
         }
         try {
-            this.mMediaCodec.signalEndOfInputStream();
+            mMediaCodec.signalEndOfInputStream();
         } catch (Exception ex) {
         }
     }
 
     public void stop() {
         if (Build.VERSION.SDK_INT >= 18) {
-            this.signalEnd();
+            signalEnd();
         }
-        this.mMediaCodec = null;
-        if (this.virtualDisplay != null) {
-            this.virtualDisplay.release();
-            this.virtualDisplay = null;
+        mMediaCodec = null;
+        if (virtualDisplay != null) {
+            virtualDisplay.release();
+            virtualDisplay = null;
         }
-        if (this.vdf != null) {
-            this.vdf.release();
-            this.vdf = null;
+        if (vdf != null) {
+            vdf.release();
+            vdf = null;
         }
     }
 
@@ -305,8 +302,8 @@ public abstract class EncoderDevice {
         }
 
         protected void cleanup() {
-            EncoderDevice.this.destroyDisplaySurface(this.venc);
-            this.venc = null;
+            destroyDisplaySurface(venc);
+            venc = null;
         }
 
         protected abstract void encode() throws Exception;
@@ -315,8 +312,8 @@ public abstract class EncoderDevice {
         public final void run() {
             while (true) {
                 try {
-                    this.encode();
-                    this.cleanup();
+                    encode();
+                    cleanup();
                     LogUtil.d("=======ENCODING COMPELTE=======");
                 } catch (Exception ex) {
                     LogUtil.d("Encoder error" + ex);
@@ -334,10 +331,10 @@ public abstract class EncoderDevice {
         int maxFrameWidth;
 
         public VideoEncoderCap(final Attributes attributes) {
-            this.maxFrameWidth = Integer.valueOf(attributes.getValue("maxFrameWidth"));
-            this.maxFrameHeight = Integer.valueOf(attributes.getValue("maxFrameHeight"));
-            this.maxBitRate = Integer.valueOf(attributes.getValue("maxBitRate"));
-            this.maxFrameRate = Integer.valueOf(attributes.getValue("maxFrameRate"));
+            maxFrameWidth = Integer.valueOf(attributes.getValue("maxFrameWidth"));
+            maxFrameHeight = Integer.valueOf(attributes.getValue("maxFrameHeight"));
+            maxBitRate = Integer.valueOf(attributes.getValue("maxBitRate"));
+            maxFrameRate = Integer.valueOf(attributes.getValue("maxFrameRate"));
         }
     }
 }

@@ -109,6 +109,19 @@ public class ReflectionUtils {
         return null;
     }
 
+    public static Object getDeclaredField(Class<?> clazz, String fieldName) {
+        Field field;
+        for (; clazz != Object.class; clazz = clazz.getSuperclass()) {
+            try {
+                field = clazz.getDeclaredField(fieldName);
+                return field;
+            } catch (SecurityException | NoSuchFieldException e) {
+                e.printStackTrace();
+            }
+        }
+        return null;
+    }
+
     public static void setFieldValue(Object object, String fieldName, Object value) {
         Field field = getDeclaredField(object, fieldName);
 

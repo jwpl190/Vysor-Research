@@ -12,6 +12,7 @@ import java.lang.reflect.Method;
 public class SystemServiceUtil {
 
     public static IWindowManager getWindowManager() throws Exception {
+        System.out.print("--------------------" + "\n");
         final Method declaredMethod = Class.forName("android.os.ServiceManager").getDeclaredMethod("getService", String.class);
         return IWindowManager.Stub.asInterface((IBinder) declaredMethod.invoke(null, "window"));
     }
@@ -27,6 +28,6 @@ public class SystemServiceUtil {
     }
 
     public static InputManager getInputManager() {
-        return (InputManager) ReflectionUtils.invokeMethod(InputManager.class, "getInstance", null, null);
+        return (InputManager) ReflectionUtils.invokeMethod(InputManager.class, "getInstance", null , null);
     }
 }

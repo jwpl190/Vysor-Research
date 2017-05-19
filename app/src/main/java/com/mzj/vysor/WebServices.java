@@ -51,6 +51,7 @@ class WebServices {
         httpServer.get("/h264", new HttpServerRequestCallback() {
             @Override
             public void onRequest(final AsyncHttpServerRequest request, final AsyncHttpServerResponse response) {
+                System.out.print("start h264" + "\n");
                 AndroidDeviceUtils.turnScreenOn();
                 response.getHeaders().set("Access-Control-Allow-Origin", "*");
                 response.getHeaders().set("Connection", "close");

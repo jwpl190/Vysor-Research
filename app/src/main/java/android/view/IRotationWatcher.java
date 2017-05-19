@@ -18,7 +18,7 @@ public interface IRotationWatcher extends IInterface {
         static final int TRANSACTION_onRotationChanged = 1;
 
         public Stub() {
-            this.attachInterface((IInterface) this, "android.view.IRotationWatcher");
+            this.attachInterface(this, "android.view.IRotationWatcher");
         }
 
         public static IRotationWatcher asInterface(final IBinder binder) {

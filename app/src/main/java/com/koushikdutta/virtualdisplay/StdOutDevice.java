@@ -84,45 +84,45 @@ public class StdOutDevice extends EncoderDevice {
             int i = 0;
             int n = 0;
             while (i == 0) {
-                final MediaCodec.BufferInfo mediaCodec$BufferInfo = new MediaCodec.BufferInfo();
-                final int dequeueOutputBuffer = this.venc.dequeueOutputBuffer(mediaCodec$BufferInfo, -1L);
+                final MediaCodec.BufferInfo bufferInfo = new MediaCodec.BufferInfo();
+                final int dequeueOutputBuffer = this.venc.dequeueOutputBuffer(bufferInfo, -1L);
                 if (dequeueOutputBuffer >= 0) {
                     if (n == 0) {
                         n = 1;
                         LogUtil.d("Got first buffer");
                     }
                     if (outputBuffers == null) {
-                        outputBuffers = this.venc.getOutputBuffers();
+                        outputBuffers = venc.getOutputBuffers();
                     }
                     final ByteBuffer byteBuffer = outputBuffers[dequeueOutputBuffer];
-                    if ((0x2 & mediaCodec$BufferInfo.flags) != 0x0) {
-                        byteBuffer.position(mediaCodec$BufferInfo.offset);
-                        byteBuffer.limit(mediaCodec$BufferInfo.offset + mediaCodec$BufferInfo.size);
-                        (StdOutDevice.this.codecPacket = ByteBuffer.allocate(mediaCodec$BufferInfo.size)).put(byteBuffer);
-                        StdOutDevice.this.codecPacket.flip();
+                    if ((0x2 & bufferInfo.flags) != 0x0) {
+                        byteBuffer.position(bufferInfo.offset);
+                        byteBuffer.limit(bufferInfo.offset + bufferInfo.size);
+                        (codecPacket = ByteBuffer.allocate(bufferInfo.size)).put(byteBuffer);
+                        codecPacket.flip();
                     }
                     final ByteBuffer order =
-                            ByteBufferList.obtain(12 + mediaCodec$BufferInfo.size).order(ByteOrder.LITTLE_ENDIAN);
-                    order.putInt(-4 + (12 + mediaCodec$BufferInfo.size));
-                    order.putInt((int) TimeUnit.MICROSECONDS.toMillis(mediaCodec$BufferInfo.presentationTimeUs));
+                            ByteBufferList.obtain(12 + bufferInfo.size).order(ByteOrder.LITTLE_ENDIAN);
+                    order.putInt(-4 + (12 + bufferInfo.size));
+                    order.putInt((int) TimeUnit.MICROSECONDS.toMillis(bufferInfo.presentationTimeUs));
                     int n2;
-                    if ((0x1 & mediaCodec$BufferInfo.flags) != 0x0) {
+                    if ((0x1 & bufferInfo.flags) != 0x0) {
                         n2 = 1;
                     } else {
                         n2 = 0;
                     }
                     order.putInt(n2);
-                    byteBuffer.position(mediaCodec$BufferInfo.offset);
-                    byteBuffer.limit(mediaCodec$BufferInfo.offset + mediaCodec$BufferInfo.size);
+                    byteBuffer.position(bufferInfo.offset);
+                    byteBuffer.limit(bufferInfo.offset + bufferInfo.size);
                     order.put(byteBuffer);
                     order.flip();
                     byteBuffer.clear();
-                    StdOutDevice.this.sink.write(new ByteBufferList(order));
-                    if (StdOutDevice.this.outputBufferCallback != null) {
-                        StdOutDevice.this.outputBufferCallback.onOutputBuffer(byteBuffer, mediaCodec$BufferInfo);
+                    sink.write(new ByteBufferList(order));
+                    if (outputBufferCallback != null) {
+                        outputBufferCallback.onOutputBuffer(byteBuffer, bufferInfo);
                     }
                     this.venc.releaseOutputBuffer(dequeueOutputBuffer, false);
-                    if ((0x4 & mediaCodec$BufferInfo.flags) != 0x0) {
+                    if ((0x4 & bufferInfo.flags) != 0x0) {
                         i = 1;
                     } else {
                         i = 0;
@@ -135,12 +135,12 @@ public class StdOutDevice extends EncoderDevice {
                         continue;
                     }
                     LogUtil.d("MediaCodec.INFO_OUTPUT_FORMAT_CHANGED");
-                    StdOutDevice.this.outputFormat = this.venc.getOutputFormat();
-                    LogUtil.d("output mWidth: " + StdOutDevice.this.outputFormat.getInteger("mWidth"));
-                    LogUtil.d("output mHeight: " + StdOutDevice.this.outputFormat.getInteger("mHeight"));
+                    outputFormat = venc.getOutputFormat();
+                    LogUtil.d("output mWidth: " + outputFormat.getInteger("mWidth"));
+                    LogUtil.d("output mHeight: " + outputFormat.getInteger("mHeight"));
                 }
             }
-            StdOutDevice.this.sink.end();
+            sink.end();
             LogUtil.d("Writer done");
         }
     }
@@ -162,9 +162,7 @@ public class StdOutDevice extends EncoderDevice {
 
         if (current.supportsSurface()) {
             LogUtil.d("use virtual display");
-            final SurfaceControlVirtualDisplayFactory surfaceControlVirtualDisplayFactory =
-                    new SurfaceControlVirtualDisplayFactory();
-            current.registerVirtualDisplay(null, surfaceControlVirtualDisplayFactory, 0);
+            current.registerVirtualDisplay(new SurfaceControlVirtualDisplayFactory(), 0);
         } else {
             LogUtil.d("use legacy path");
             current.createDisplaySurface();
