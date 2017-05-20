@@ -27,7 +27,7 @@ public class ScriptC_Base extends ScriptC {
             }
         } catch (Exception ex) {
             ex.printStackTrace();
-            throw new AssertionError((Object) "rs fail");
+            throw new AssertionError("rs fail");
         }
         return intValue;
     }

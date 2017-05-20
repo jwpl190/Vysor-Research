@@ -334,12 +334,9 @@ public class YuvConverter {
             if (Build.VERSION.SDK_INT < 18) {
                 renderScript = (RenderScript) YuvConverter.create.invoke(null, YuvConverter.context, 16);
             } else if (Build.VERSION.SDK_INT < 21) {
-                renderScript =
-                        (RenderScript) YuvConverter.create.invoke(null, YuvConverter.context, 16, RenderScript.ContextType.NORMAL);
+                renderScript = (RenderScript) YuvConverter.create.invoke(null, YuvConverter.context, 16, RenderScript.ContextType.NORMAL);
             } else {
-                renderScript =
-                        (RenderScript) YuvConverter.create.invoke(null, YuvConverter.context, 16, RenderScript.ContextType.NORMAL,
-                                0);
+                renderScript = (RenderScript) YuvConverter.create.invoke(null, YuvConverter.context, 16, RenderScript.ContextType.NORMAL, 0);
             }
         } catch (Exception ex) {
             throw new AssertionError(ex);

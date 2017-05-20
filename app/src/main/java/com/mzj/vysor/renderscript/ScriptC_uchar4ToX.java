@@ -41,7 +41,7 @@ public class ScriptC_uchar4ToX extends ScriptC_Base {
         if (type.getCount() != type2.getCount() || type.getX() != type2.getX() || type.getY() != type2.getY() || type.getZ() != type2.getZ() || type.hasFaces() != type2.hasFaces() || type.hasMipmaps() != type2.hasMipmaps()) {
             throw new RSRuntimeException("Dimension mismatch between parameters ain and aout!");
         }
-        this.forEach(0, allocation, allocation2, (FieldPacker) null);
+        this.forEach(0, allocation, allocation2, null);
     }
 
     public Element getTo() {

@@ -1,6 +1,5 @@
 package com.koushikdutta.virtualdisplay;
 
-import android.annotation.TargetApi;
 import android.graphics.Point;
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
@@ -171,12 +170,11 @@ public abstract class EncoderDevice {
 
         mMediaCodec.configure(mediaFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
         Surface localSurface = mMediaCodec.createInputSurface();
-//        localEncoderRunnable = onSurfaceCreated(mMediaCodec);
-//        localEncoderThread = new Thread(localEncoderRunnable, "Encoder");
         mMediaCodec.start();
-//        Log.e(LOGTAG, "create SurfaceRefresh ~~~");
-//        if (Utils.supportsVDF())
-//            screenRefresh = new SurfaceRefresh(null);
+
+        EncoderRunnable encoderRunnable = onSurfaceCreated(mMediaCodec);
+        Thread encoderThread = new Thread(encoderRunnable, "Encoder");
+        encoderThread.start();
         return localSurface;
     }
 
@@ -240,27 +238,26 @@ public abstract class EncoderDevice {
 
     protected abstract EncoderRunnable onSurfaceCreated(final MediaCodec p0);
 
+    void setSurfaceFormat(final MediaFormat mediaFormat) {
+        mediaFormat.setInteger("color-format", colorFormat = 2130708361);
+    }
+
     public void registerVirtualDisplay(final VirtualDisplayFactory vdf, final int n) {
         assert virtualDisplay == null;
-        final Surface displaySurface = createDisplaySurface();
+        Surface displaySurface = createDisplaySurface();
         if (displaySurface == null) {
-            LogUtil.d("Unable to create surface");
+            System.out.println("Unable to create surface" + "\n");
         } else {
-            LogUtil.d("Created surface");
+            System.out.println("Created surface" + "\n");
             this.vdf = vdf;
             virtualDisplay = vdf.createVirtualDisplay(name, mWidth, mHeight, n, 3, displaySurface, null);
         }
-    }
-
-    void setSurfaceFormat(final MediaFormat mediaFormat) {
-        mediaFormat.setInteger("color-format", colorFormat = 2130708361);
     }
 
     public void setUseEncodingConstraints(final boolean useEncodingConstraints) {
         this.useEncodingConstraints = useEncodingConstraints;
     }
 
-    @TargetApi(18)
     void signalEnd() {
         if (mMediaCodec == null) {
             return;
@@ -295,15 +292,15 @@ public abstract class EncoderDevice {
     }
 
     protected abstract class EncoderRunnable implements Runnable {
-        MediaCodec venc;
+        MediaCodec mEncoder;
 
-        public EncoderRunnable(final MediaCodec venc) {
-            this.venc = venc;
+        public EncoderRunnable(final MediaCodec mEncoder) {
+            this.mEncoder = mEncoder;
         }
 
         protected void cleanup() {
-            destroyDisplaySurface(venc);
-            venc = null;
+            destroyDisplaySurface(mEncoder);
+            mEncoder = null;
         }
 
         protected abstract void encode() throws Exception;
@@ -314,9 +311,7 @@ public abstract class EncoderDevice {
                 try {
                     encode();
                     cleanup();
-                    LogUtil.d("=======ENCODING COMPELTE=======");
                 } catch (Exception ex) {
-                    LogUtil.d("Encoder error" + ex);
                     continue;
                 }
                 break;

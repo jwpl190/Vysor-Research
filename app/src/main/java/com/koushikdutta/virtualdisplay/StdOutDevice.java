@@ -10,12 +10,17 @@ import android.os.Bundle;
 import com.koushikdutta.async.BufferedDataSink;
 import com.koushikdutta.async.ByteBufferList;
 
+import java.io.File;
+import java.io.IOException;
+import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.concurrent.TimeUnit;
 
+import com.koushikdutta.async.http.WebSocket;
 import com.mzj.vysor.ClientConfig;
-import com.xing.xbase.util.LogUtil;
+import com.mzj.vysor.Main;
+import com.xing.xbase.util.FileUtil;
 
 public class StdOutDevice extends EncoderDevice {
     public static final String TAG = StdOutDevice.class.getSimpleName();
@@ -24,25 +29,28 @@ public class StdOutDevice extends EncoderDevice {
     ByteBuffer codecPacket;
     OutputBufferCallback outputBufferCallback;
     MediaFormat outputFormat;
-    BufferedDataSink sink;
+    WebSocket mWebSocket;
+    private ByteBuffer SPS;
+    private ByteBuffer PPS;
+    private byte[] H264Header;
 
-    public StdOutDevice(final int n, final int n2, final BufferedDataSink sink) {
+    public StdOutDevice(final int n, final int n2, WebSocket webSocket) {
         super("stdout", n, n2);
-        this.bitrate = 500000;
-        this.sink = sink;
+        bitrate = 500000;
+        mWebSocket = webSocket;
     }
 
     @Override
     public int getBitrate(final int n) {
-        return this.bitrate;
+        return bitrate;
     }
 
     public ByteBuffer getCodecPacket() {
-        return this.codecPacket.duplicate();
+        return codecPacket.duplicate();
     }
 
     public MediaFormat getOutputFormat() {
-        return this.outputFormat;
+        return outputFormat;
     }
 
     @Override
@@ -54,17 +62,17 @@ public class StdOutDevice extends EncoderDevice {
     public void requestSyncFrame() {
         final Bundle parameters = new Bundle();
         parameters.putInt("request-sync", 0);
-        this.mMediaCodec.setParameters(parameters);
+        mMediaCodec.setParameters(parameters);
     }
 
     @TargetApi(19)
     public void setBitrate(final int bitrate) {
-        LogUtil.d("Bitrate: " + bitrate);
-        if (this.mMediaCodec != null) {
+        System.out.print("Bitrate: " + bitrate);
+        if (mMediaCodec != null) {
             this.bitrate = bitrate;
             final Bundle parameters = new Bundle();
             parameters.putInt("video-bitrate", bitrate);
-            this.mMediaCodec.setParameters(parameters);
+            mMediaCodec.setParameters(parameters);
         }
     }
 
@@ -79,20 +87,20 @@ public class StdOutDevice extends EncoderDevice {
 
         @Override
         protected void encode() throws Exception {
-            LogUtil.d("Writer started.");
+            System.out.print("Writer started." + "\n");
             ByteBuffer[] outputBuffers = null;
             int i = 0;
             int n = 0;
             while (i == 0) {
                 final MediaCodec.BufferInfo bufferInfo = new MediaCodec.BufferInfo();
-                final int dequeueOutputBuffer = this.venc.dequeueOutputBuffer(bufferInfo, -1L);
+                final int dequeueOutputBuffer = mEncoder.dequeueOutputBuffer(bufferInfo, -1L);
                 if (dequeueOutputBuffer >= 0) {
                     if (n == 0) {
                         n = 1;
-                        LogUtil.d("Got first buffer");
+                        System.out.print("Got first buffer" + "\n");
                     }
                     if (outputBuffers == null) {
-                        outputBuffers = venc.getOutputBuffers();
+                        outputBuffers = mEncoder.getOutputBuffers();
                     }
                     final ByteBuffer byteBuffer = outputBuffers[dequeueOutputBuffer];
                     if ((0x2 & bufferInfo.flags) != 0x0) {
@@ -101,8 +109,7 @@ public class StdOutDevice extends EncoderDevice {
                         (codecPacket = ByteBuffer.allocate(bufferInfo.size)).put(byteBuffer);
                         codecPacket.flip();
                     }
-                    final ByteBuffer order =
-                            ByteBufferList.obtain(12 + bufferInfo.size).order(ByteOrder.LITTLE_ENDIAN);
+                    ByteBuffer order = ByteBufferList.obtain(12 + bufferInfo.size).order(ByteOrder.LITTLE_ENDIAN);
                     order.putInt(-4 + (12 + bufferInfo.size));
                     order.putInt((int) TimeUnit.MICROSECONDS.toMillis(bufferInfo.presentationTimeUs));
                     int n2;
@@ -117,56 +124,89 @@ public class StdOutDevice extends EncoderDevice {
                     order.put(byteBuffer);
                     order.flip();
                     byteBuffer.clear();
-                    sink.write(new ByteBufferList(order));
+                    byte[] byteBuffers = generateH264Package(order);
+                    try {
+                        writeByte(Main.mFile, byteBuffers);
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                    mWebSocket.send(byteBuffers);
                     if (outputBufferCallback != null) {
                         outputBufferCallback.onOutputBuffer(byteBuffer, bufferInfo);
                     }
-                    this.venc.releaseOutputBuffer(dequeueOutputBuffer, false);
+                    mEncoder.releaseOutputBuffer(dequeueOutputBuffer, false);
                     if ((0x4 & bufferInfo.flags) != 0x0) {
                         i = 1;
                     } else {
                         i = 0;
                     }
-                } else if (dequeueOutputBuffer == -3) {
-                    LogUtil.d("MediaCodec.INFO_OUTPUT_BUFFERS_CHANGED");
-                    outputBuffers = null;
                 } else {
                     if (dequeueOutputBuffer != -2) {
                         continue;
                     }
-                    LogUtil.d("MediaCodec.INFO_OUTPUT_FORMAT_CHANGED");
-                    outputFormat = venc.getOutputFormat();
-                    LogUtil.d("output mWidth: " + outputFormat.getInteger("mWidth"));
-                    LogUtil.d("output mHeight: " + outputFormat.getInteger("mHeight"));
+                    System.out.print("MediaCodec.INFO_OUTPUT_FORMAT_CHANGED" + "\n");
+                    outputFormat = mEncoder.getOutputFormat();
+                    System.out.print("output mWidth: " + outputFormat.getInteger("mWidth") + "\n");
+                    System.out.print("output mHeight: " + outputFormat.getInteger("mHeight") + "\n");
                 }
             }
-            sink.end();
-            LogUtil.d("Writer done");
+            System.out.print("Writer done" + "\n");
+        }
+
+        public byte[] generateH264Package(ByteBuffer frameData) {
+            int frameDataLength = frameData.remaining();
+            byte[] frameDataByte = new byte[frameDataLength];
+            frameData.get(frameDataByte, 0, frameDataLength);
+            if (H264Header != null) {
+                byte[] outData = new byte[H264Header.length + frameDataByte.length];
+                System.arraycopy(H264Header, 0, outData, 0, H264Header.length);
+                System.arraycopy(frameDataByte, 0, outData, H264Header.length, frameDataByte.length);
+                return outData;
+            }
+            return frameDataByte;
         }
     }
 
     public static StdOutDevice current;
 
-    public static StdOutDevice genStdOutDevice(BufferedDataSink sink) {
+    public static StdOutDevice genStdOutDevice(WebSocket webSocket) {
         if (current != null){
             current.stop();}
         current = null;
         Point point = SurfaceControlVirtualDisplayFactory.getEncodeSize();
-        current = new StdOutDevice(point.x, point.y, sink);
+        current = new StdOutDevice(point.x, point.y, webSocket);
         if (ClientConfig.resolution != 0.0) {
             current.setUseEncodingConstraints(false);
         }
+        System.out.print("Build.VERSION.SDK_INT" + "\n");
         if (Build.VERSION.SDK_INT < 19) {
             current.useSurface(false);
         }
 
         if (current.supportsSurface()) {
-            LogUtil.d("use virtual display");
-            current.registerVirtualDisplay(new SurfaceControlVirtualDisplayFactory(), 0);
+            System.out.print("use virtual display" + "\n");
+            final SurfaceControlVirtualDisplayFactory surfaceControlVirtualDisplayFactory =
+                    new SurfaceControlVirtualDisplayFactory();
+            current.registerVirtualDisplay(surfaceControlVirtualDisplayFactory, 0);
         } else {
-            LogUtil.d("use legacy path");
+            System.out.print("use legacy path" + "\n");
             current.createDisplaySurface();
         }
         return current;
+    }
+
+    public static void writeByte(File file, byte[] bytes) throws IOException {
+        try {
+            // 打开一个随机访问文件流，按读写方式
+            RandomAccessFile randomFile = new RandomAccessFile(file.getAbsoluteFile(), "rw");
+            // 文件长度，字节数
+            long fileLength = randomFile.length();
+            //将写文件指针移到文件尾。
+            randomFile.seek(fileLength);
+            randomFile.write(bytes);
+            randomFile.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 }
